@@ -2,11 +2,11 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 import dataset
-import slowfast
-import mlp
+import video_understanding
+import clip_selection
 import matplotlib.pyplot as plt
 
-def train_epoch(dataloader, slowfast_model, mlp_model, optimizer):
+def train_epoch(dataloader, slowfast_model, mlp_model, optimizer):#returns mean loss & accuracy after training 
     slowfast_model.eval()
     mlp_model.train()
     total_loss = 0
@@ -32,7 +32,7 @@ def train_epoch(dataloader, slowfast_model, mlp_model, optimizer):
 
     return total_loss / len(dataloader), correct / len(dataloader)
 
-def evaluate(dataloader, slowfast_model, mlp_model):
+def evaluate(dataloader, slowfast_model, mlp_model):#return accuracy 
     slowfast_model.eval()
     mlp_model.eval()
     correct = 0
@@ -50,14 +50,14 @@ def evaluate(dataloader, slowfast_model, mlp_model):
     return correct / len(dataloader)
 
 def main():
-    base_dir = "D:\\valorant_video_annotation"
+    base_dir = "F:\\valorant_video_annotation"
     batch_size = 8
     epochs = 20
     lr = 0.001
 
     train_dataloader, test_dataloader = dataset.create_data_loaders(base_dir, batch_size)
-    slowfast_model = slowfast.load_slowfast_model()
-    mlp_model = mlp.create_mlp_model(1000, 500, 2)
+    slowfast_model = video_understanding.load_slowfast_model()
+    mlp_model = clip_selection.create_mlp_model(1000, 500, 2)
     optimizer = optim.Adam(mlp_model.parameters(), lr=lr)
 
     train_losses, test_accuracies = [], []
