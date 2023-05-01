@@ -1,104 +1,79 @@
-import os
-import random
 import torch
 from torch.utils.data import Dataset
-from torchvision.transforms import Compose, Resize, ToTensor
+import os
+import random
+from typing import Tuple
 import cv2
-from PIL import Image
+import numpy as np
 
-class VideoDataset(Dataset):
-    def __init__(self, base_dir, transform=None, num_frames=90, split_ratio=0.8):
-        self.base_dir = base_dir
+class ValorantClipDataset(Dataset):
+    def __init__(self, root_dir: str, split: str, ratio: float = 0.8, transform=None):
+        self.root_dir = root_dir
+        self.split = split
         self.transform = transform
-        self.folder_0 = os.path.join(self.base_dir, "0")
-        self.folder_1 = os.path.join(self.base_dir, "1")
-        self.files_0 = os.listdir(self.folder_0)
-        self.files_1 = os.listdir(self.folder_1)
-        self.num_frames = num_frames
-        (self.train_files_0, self.train_files_1), (self.test_files_0, self.test_files_1) = self.split_data(split_ratio)
 
-    def __len__(self):#returns minimum size of videos in folder
-        return min(len(self.files_0), len(self.files_1))
+        self.clips_0 = sorted(os.listdir(os.path.join(root_dir, "0")))
+        self.clips_1 = sorted(os.listdir(os.path.join(root_dir, "1")))
 
-    def __getitem__(self, index, mode='train'):
-        if mode == 'train':
-            video_0_path = os.path.join(self.folder_0, self.train_files_0[index])
-            video_1_path = os.path.join(self.folder_1, self.train_files_1[index])
-        elif mode == 'test':
-            video_0_path = os.path.join(self.folder_0, self.test_files_0[index])
-            video_1_path = os.path.join(self.folder_1, self.test_files_1[index])
-        else:
-            raise ValueError("Invalid mode. Choose either 'train' or 'test'.")
+        random.shuffle(self.clips_0)
+        random.shuffle(self.clips_1)
 
-        video_0 = self.read_video(video_0_path)
-        video_1 = self.read_video(video_1_path)
-        
-        #numpy -> PIL
-        video_0 = [Image.fromarray(frame) for frame in video_0]
-        video_1 = [Image.fromarray(frame) for frame in video_1]
-        
+        min_length = min(len(self.clips_0), len(self.clips_1))
+        self.clips_0 = self.clips_0[:min_length]
+        self.clips_1 = self.clips_1[:min_length]
+
+        split_idx = int(min_length * ratio)
+
+        if self.split == 'train':
+            self.clips_0 = self.clips_0[:split_idx]
+            self.clips_1 = self.clips_1[:split_idx]
+        elif self.split == 'eval':
+            self.clips_0 = self.clips_0[split_idx:]
+            self.clips_1 = self.clips_1[split_idx:]
+
+    def __len__(self):
+        return min(len(self.clips_0), len(self.clips_1))
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int]:
+        clip_path_0 = os.path.join(self.root_dir, "0", self.clips_0[idx])
+        clip_path_1 = os.path.join(self.root_dir, "1", self.clips_1[idx])
+
+        video_tensor_0 = self._load_video_tensor(clip_path_0)
+        video_tensor_1 = self._load_video_tensor(clip_path_1)
+
         if self.transform:
-            video_0 = [self.transform(frame) for frame in video_0]
-            video_1 = [self.transform(frame) for frame in video_1]
+            video_tensor_0 = self.transform(video_tensor_0)
+            video_tensor_1 = self.transform(video_tensor_1)
+            
+        return video_tensor_0, video_tensor_1, 1
 
-        return video_0, video_1
-
-
-    def split_data(self,split_ratio):
-        random.shuffle(self.files_0)
-        random.shuffle(self.files_1)
-        
-        train_len=int(self.__len__*split_ratio)
-        
-        train_files_0=self.files_0[:train_len]
-        train_files_1=self.files_1[:train_len]
-        test_files_0=self.files_0[train_len:self.__len__]
-        test_files_1=self.files_1[train_len:self.__len__]
-        
-        return (train_files_0,train_files_1),(test_files_0,test_files_1)
-
-    def read_video(self, video_path):#converts a list of frames given a video (resamples frame size to 90)
-        cap = cv2.VideoCapture(video_path)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    def _load_video_tensor(self, clip_path: str) -> torch.Tensor:
+        cap = cv2.VideoCapture(clip_path)
         frames = []
-        
-        if total_frames>self.num_frames:
-            step = total_frames//self.num_frames
-            for i in range(self.num_frames):
-                cap.set(cv2.CAP_PROP_POS_FRAMES,i*step)
-                ret,frame=cap.read()
-                if ret:
-                    frames.append(frame)
-        else:
-            for i in range(self.num_frames):
-                cap.set(cv2.CAP_PROP_POS_FRAMES,i%total_frames)
-                ret,frame=cap.read()
-                if ret:
-                    frames.append(frame)
-        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame = cv2.resize(frame, (32, 24))#resize
+            frames.append(frame)
         cap.release()
-        return frames
-
-def get_transforms():
-    return Compose([Resize((256, 256)), ToTensor()])
-
-def create_data_loaders(base_dir, batch_size):
-    transform = get_transforms()
-    dataset= VideoDataset(base_dir,transform)
-    train_data_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True,collate_fn=collate_fn)
-    test_data_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False,collate_fn=collate_fn)
-    return data_loader
-
-
-def collate_fn(batch):#custom collate_fn
-    video_0_batch, video_1_batch = [], []
+        frames_np = np.stack(frames, axis=0)
+        return torch.tensor(frames_np, dtype=torch.float32).permute(3, 0, 1, 2) / 255.0
     
-    for video_0, video_1 in batch:
-        video_0_batch.append(torch.stack(video_0))
-        video_1_batch.append(torch.stack(video_1))
+def custom_collate_fn(batch):
+    max_frames = max([max(video_tensor_0.shape[1], video_tensor_1.shape[1]) for video_tensor_0, video_tensor_1, label in batch])
 
-    video_0_batch = torch.stack(video_0_batch)
-    video_1_batch = torch.stack(video_1_batch)
+    padded_batch = []
+    for video_tensor_0, video_tensor_1, label in batch:
+        padding_0 = torch.zeros(video_tensor_0.shape[0], max_frames - video_tensor_0.shape[1], *video_tensor_0.shape[2:])
+        padding_1 = torch.zeros(video_tensor_1.shape[0], max_frames - video_tensor_1.shape[1], *video_tensor_1.shape[2:])
 
-    return video_0_batch, video_1_batch
+        padded_video_tensor_0 = torch.cat([video_tensor_0, padding_0], dim=1)
+        padded_video_tensor_1 = torch.cat([video_tensor_1, padding_1], dim=1)
+
+        padded_batch.append((padded_video_tensor_0, padded_video_tensor_1, label))
+
+    video_tensors_0, video_tensors_1, labels = zip(*padded_batch)
+
+    return torch.stack(video_tensors_0, dim=0), torch.stack(video_tensors_1, dim=0), torch.tensor(labels)
 
