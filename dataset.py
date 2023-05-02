@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 class ValorantClipDataset(Dataset):
-    def __init__(self, root_dir: str, split: str, ratio: float = 0.8, transform=None):
+    def __init__(self, root_dir: str, split: str, ratio: float = 0.5, transform=None):
         self.root_dir = root_dir
         self.split = split
         self.transform = transform
@@ -50,12 +50,14 @@ class ValorantClipDataset(Dataset):
     def _load_video_tensor(self, clip_path: str) -> torch.Tensor:
         cap = cv2.VideoCapture(clip_path)
         frames = []
+        frame_count=0
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-            frame = cv2.resize(frame, (32, 24))#resize
-            frames.append(frame)
+            if frame_count%4==0:
+                frame = cv2.resize(frame, (320, 180))
+                frames.append(frame)
         cap.release()
         frames_np = np.stack(frames, axis=0)
         return torch.tensor(frames_np, dtype=torch.float32).permute(3, 0, 1, 2) / 255.0

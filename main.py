@@ -83,6 +83,7 @@ def main():
 
     for epoch in range(epochs):
         train_loss, train_accuracy = train(device, train_dataloader, understanding_model, selection_model, optimizer, criterion)
+        torch.cuda.empty_cache()
         print(f"Epoch {epoch + 1}, Loss: {train_loss:.4f}, Accuracy: {train_accuracy:.4f}")
 
         loss_history.append(train_loss)
@@ -91,6 +92,7 @@ def main():
     visualize_training(loss_history, accuracy_history)
 
     eval_accuracy = evaluate(device, eval_dataloader, understanding_model, selection_model)
+    torch.cuda.empty_cache()
     print(f"Evaluation Accuracy: {eval_accuracy:.4f}")
 
 if __name__ == "__main__":
