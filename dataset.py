@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 class ValorantClipDataset(Dataset):
-    def __init__(self, root_dir: str, split: str, ratio: float = 0.5, transform=None):
+    def __init__(self, root_dir: str, split: str, ratio: float = 0.8, transform=None):
         self.root_dir = root_dir
         self.split = split
         self.transform = transform
@@ -18,7 +18,7 @@ class ValorantClipDataset(Dataset):
         random.shuffle(self.clips_0)
         random.shuffle(self.clips_1)
 
-        min_length = min(len(self.clips_0), len(self.clips_1))
+        min_length = min(len(self.clips_0), len(self.clips_1))-10
         self.clips_0 = self.clips_0[:min_length]
         self.clips_1 = self.clips_1[:min_length]
 
@@ -40,12 +40,19 @@ class ValorantClipDataset(Dataset):
 
         video_tensor_0 = self._load_video_tensor(clip_path_0)
         video_tensor_1 = self._load_video_tensor(clip_path_1)
+        label = 1
 
         if self.transform:
             video_tensor_0 = self.transform(video_tensor_0)
             video_tensor_1 = self.transform(video_tensor_1)
             
-        return video_tensor_0, video_tensor_1, 1
+        switch = random.choice([True,False])
+        
+        if switch:
+            video_tensor_0,video_tensor_1=video_tensor_1,video_tensor_0
+            label = 1-label
+            
+        return video_tensor_0, video_tensor_1, label
 
     def _load_video_tensor(self, clip_path: str) -> torch.Tensor:
         cap = cv2.VideoCapture(clip_path)

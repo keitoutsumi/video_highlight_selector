@@ -63,7 +63,7 @@ def evaluate(device, dataloader, understanding_model, selection_model):
 def main():
     device = torch.device("cuda")
     root_dir = "F:\\valorant_video_annotation"
-    epochs = 1
+    epochs = 100
 
     train_dataset = ValorantClipDataset(root_dir, split='train')
     eval_dataset = ValorantClipDataset(root_dir, split='eval')
