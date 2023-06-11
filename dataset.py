@@ -19,7 +19,8 @@ class VideoDataset(Dataset):
 
     def __len__(self):#returns minimum size of videos in folder
         return min(len(self.files_0), len(self.files_1))
-
+    
+    #randomnization
     def __getitem__(self, index, mode='train'):
         if mode == 'train':
             video_0_path = os.path.join(self.folder_0, self.train_files_0[index])
