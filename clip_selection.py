@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+#clip selection model to select clips from feature vectors
 class MLP(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(MLP, self).__init__()
