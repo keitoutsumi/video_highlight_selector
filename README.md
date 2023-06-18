@@ -1,4 +1,4 @@
-# video_highlight_creator
+# video_highlight_creator（WIP）
 
 ### This project aims to create highligts from Esports video datasets.
 
