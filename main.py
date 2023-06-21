@@ -2,12 +2,20 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import torch
 import torch.optim as optim
+from torch.nn.functional import cosine_similarity
 from torch.utils.data import DataLoader, random_split
 from dataset import ValorantClipDataset, custom_collate_fn
 from models import VideoUnderstandingModel, ClipSelectionModel
 from utils import visualize_training
 import numpy as np
 from tqdm import tqdm
+
+def calculate_similarity(tensor1, tensor2):
+    tensor1_flat = tensor1.view(-1)
+    tensor2_flat = tensor2.view(-1)
+    similarity = cosine_similarity(tensor1_flat.unsqueeze(0), tensor2_flat.unsqueeze(0))
+    return similarity.item()
+
 
 def train(device, dataloader, understanding_model, selection_model, optimizer, criterion):
     understanding_model.eval()
@@ -79,6 +87,7 @@ def main():
 
     loss_history = []
     accuracy_history = []
+    similarity_matrix = np.array[]
     # print("everything before training is ok")
 
     for epoch in range(epochs):
